@@ -16,6 +16,11 @@ spec:
     helm:
       valueFiles:
         - values.yaml
+      # Equivalent of `helm install --set message=...`. Overrides values.yaml
+      # without editing the chart - handy for per-Application tweaks.
+      parameters:
+        - name: message
+          value: "pong (via ArgoCD override)"
 
   destination:
     server: https://kubernetes.default.svc
