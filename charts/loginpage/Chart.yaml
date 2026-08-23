@@ -1,0 +1,6 @@
+apiVersion: v2
+name: loginpage
+description: nginx + HTTP Basic Auth demo app, credentials sourced from a Kubernetes Secret (via Sealed Secrets)
+type: application
+version: 0.1.0
+appVersion: "1.0"

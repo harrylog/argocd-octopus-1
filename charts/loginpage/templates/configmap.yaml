@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "loginpage.fullname" . }}
+  labels:
+    {{- include "loginpage.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    events {}
+    http {
+      server {
+        listen 8080;
+
+        location / {
+          auth_basic "argocd-octopus-1 POC - restricted";
+          auth_basic_user_file /etc/nginx/secrets/.htpasswd;
+
+          root /usr/share/nginx/html;
+          index index.html;
+        }
+      }
+    }
+
+  index.html: |
+    <!doctype html>
+    <html>
+      <head><title>loginpage</title></head>
+      <body style="font-family: sans-serif; margin: 4rem;">
+        <h1>You're in.</h1>
+        <p>
+          This page is protected by HTTP Basic Auth. The password file nginx
+          checks against comes from a Kubernetes Secret that started life as
+          a <code>SealedSecret</code> committed to git and was decrypted
+          in-cluster by the Sealed Secrets controller.
+        </p>
+      </body>
+    </html>

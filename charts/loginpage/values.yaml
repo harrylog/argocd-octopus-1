@@ -1,0 +1,25 @@
+# Default values for the loginpage chart.
+
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: alpine
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# Name of the Secret providing the htpasswd file (key: .htpasswd).
+# Created here as a SealedSecret - see templates/sealed-secret.yaml.
+secretName: loginpage-htpasswd
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 16Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
