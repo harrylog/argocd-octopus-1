@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pingpong
+description: Minimal HTTP echo app used as a first ArgoCD/Helm GitOps POC
+type: application
+version: 0.1.0
+appVersion: "1.0"

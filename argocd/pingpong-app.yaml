@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pingpong
+  namespace: argocd
+  finalizers:
+    # Ensures ArgoCD cleans up deployed resources if this Application is deleted.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
+    targetRevision: main
+    path: charts/pingpong
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pingpong
+
+  syncPolicy:
+    automated:
+      prune: true      # remove resources that are no longer defined in git
+      selfHeal: true    # revert any manual/out-of-band changes in the cluster
+    syncOptions:
+      - CreateNamespace=true
