@@ -1,0 +1,43 @@
+# Default values for the canary-demo chart.
+
+# 4 replicas so weight steps (25/50/75%) land on whole pods - matches the
+# Codefresh tutorial's own 4-pod example.
+replicaCount: 4
+
+# argoproj/rollouts-demo renders a full-page color swatch matching the image
+# tag - same image bluegreen-demo uses, so the two POCs are easy to compare.
+image:
+  repository: argoproj/rollouts-demo
+  tag: "blue"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+# Argo Rollouts canary strategy. See templates/rollout.yaml.
+#
+# No traffic-routing plugin (Istio/ALB/Traefik/...) is installed on this
+# cluster, so this is "basic" canary: the Rollout approximates each
+# setWeight by scaling the canary ReplicaSet's *replica count* relative to
+# stable, rather than actually splitting a shared Service's traffic.
+# The canaryService/stableService below still let you curl each version
+# directly to see exactly what's running at each step.
+canary:
+  steps:
+    - setWeight: 25
+    - pause: {}   # wait for `kubectl argo rollouts promote canary-demo`
+    - setWeight: 50
+    - pause: {}
+    - setWeight: 75
+    - pause: {}
+    # implicit setWeight: 100 once the last pause is promoted

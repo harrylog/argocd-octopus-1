@@ -113,9 +113,73 @@ Dashboards:
   mapped). User `admin`, password from:
   `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`
 
+### canary-demo
+
+Practicing Codefresh's "Canaries with Argo Rollouts" tutorial - same
+controller as above (`argo-rollouts` Application), different strategy.
+Where blue/green is one instant all-or-nothing cutover, canary shifts
+traffic in weighted steps with pauses in between, so you can watch a small
+slice of real usage hit the new version before going further.
+
+Chart is at `charts/canary-demo`, same `argoproj/rollouts-demo` image as
+`bluegreen-demo` so the two are easy to compare. `-stable` fronts the
+current/majority version, `-canary` fronts the newest one - same
+Service-selector-rewrite mechanism as blue/green's `-active`/`-preview`.
+
+This cluster has no traffic-routing plugin (Istio/ALB/Traefik/...)
+installed, so it's "basic" canary: Argo Rollouts approximates each
+`setWeight` by scaling the canary ReplicaSet's *replica count* relative to
+stable, rather than literally splitting one Service's traffic. Good enough
+to see the mechanics; a real prod setup would put a mesh or ingress in
+front of `-stable`/`-canary` to get exact percentages.
+
+Deploy it:
+
+```bash
+kubectl apply -f argocd/canary-demo-app.yaml
+argocd app sync argo-rollouts canary-demo   # argo-rollouts controller must exist first
+```
+
+Trigger a canary rollout the same way as blue/green - bump
+`charts/canary-demo/values.yaml`'s `image.tag`, push, sync:
+
+```bash
+argocd app sync canary-demo
+kubectl -n canary-demo get rollout canary-demo -w
+```
+
+`values.yaml`'s steps (`setWeight: 25 -> pause -> 50 -> pause -> 75 -> pause`)
+all use indefinite pauses, so - same "control everything" philosophy as
+the rest of this repo - nothing advances without an explicit promote:
+
+```bash
+kubectl argo rollouts promote canary-demo -n canary-demo   # advance one step
+kubectl argo rollouts promote canary-demo -n canary-demo --full   # skip straight to 100%
+kubectl argo rollouts undo canary-demo -n canary-demo      # roll back
+```
+
+Watch both the weight and the replica split live in the dashboard
+(http://localhost:3100/rollouts/canary-demo) or:
+
+```bash
+kubectl -n canary-demo get rollout canary-demo
+```
+
+**Can canary and blue/green coexist?** Yes, but at different scopes:
+
+- One `argo-rollouts` controller happily runs both strategies at once -
+  that's exactly what `bluegreen-demo` and `canary-demo` are doing side by
+  side in this repo, as two separate `Rollout` objects.
+- A *single* `Rollout` cannot mix them - `spec.strategy.canary` and
+  `spec.strategy.blueGreen` are mutually exclusive; you pick one per app.
+  If you want blue/green's "fully inspect before any traffic" behavior
+  *plus* canary's gradual ramp for the same app, canary's own `pause` /
+  `AnalysisTemplate` steps are Argo Rollouts' answer to that - not a
+  literal combination of both strategy blocks.
+
 ## Planned next steps
 
 - Possibly an "app of apps" ArgoCD Application so `argocd/*.yaml` is itself
   managed by ArgoCD instead of `kubectl apply`d by hand.
-- Canary deployments / analysis-based rollbacks with Argo Rollouts, building
-  on the blue/green POC above.
+- Analysis-based automated rollbacks (`AnalysisTemplate` + metric checks)
+  on top of the canary POC above.

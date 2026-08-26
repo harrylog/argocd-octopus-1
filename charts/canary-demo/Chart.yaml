@@ -1,0 +1,6 @@
+apiVersion: v2
+name: canary-demo
+description: Argo Rollouts canary POC - gradual weighted traffic shift instead of blue/green's single cutover
+type: application
+version: 0.1.0
+appVersion: "1.0"
