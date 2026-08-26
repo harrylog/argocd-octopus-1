@@ -8,7 +8,7 @@ replicaCount: 4
 # tag - same image bluegreen-demo uses, so the two POCs are easy to compare.
 image:
   repository: argoproj/rollouts-demo
-  tag: "blue"
+  tag: "orange"
   pullPolicy: Always
 
 service:
