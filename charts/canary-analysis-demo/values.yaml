@@ -9,7 +9,7 @@ replicaCount: 4
 # hitting /color is what turns that into a Ready/NotReady signal at all.
 image:
   repository: argoproj/rollouts-demo
-  tag: "bad-red"
+  tag: "blue"
   pullPolicy: Always
 
 service:
