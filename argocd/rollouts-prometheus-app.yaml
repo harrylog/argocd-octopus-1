@@ -1,7 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: prometheus
+  # NOTE: named "rollouts-prometheus", not "prometheus" - this cluster
+  # already has an unrelated "prometheus" Application (from a different
+  # repo, observability-monitoring-1/kube-prometheus-stack). Don't rename
+  # this back to "prometheus" or the two will collide on the same
+  # Application object again. helm.releaseName below is still "prometheus"
+  # on purpose - only the ArgoCD-level name changed, resource names
+  # (prometheus-server, etc.) referenced by canary-analysis-demo did not.
+  name: rollouts-prometheus
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -36,7 +43,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: rollouts-metrics
 
-  # Manual sync only - no automated/selfHeal. Run `argocd app sync prometheus`
+  # Manual sync only - no automated/selfHeal. Run `argocd app sync rollouts-prometheus`
   # (or sync from the UI) to apply changes.
   syncPolicy:
     syncOptions:
