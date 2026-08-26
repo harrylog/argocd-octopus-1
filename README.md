@@ -18,8 +18,15 @@ argocd/           ArgoCD Application manifests (one per app), applied by hand fo
 ```
 
 Each app gets its own Helm chart under `charts/<app>` and its own `Application`
-manifest under `argocd/<app>-app.yaml` pointing at that chart path. ArgoCD polls
-this repo and reconciles the cluster to match.
+manifest under `argocd/<app>-app.yaml` pointing at that chart path.
+
+Sync is manual everywhere (`syncPolicy` has no `automated:` block) - ArgoCD
+never auto-syncs or self-heals. After changing a chart or pushing to `main`,
+apply the change yourself:
+
+```bash
+argocd app sync <name>   # or click Sync in the UI
+```
 
 ## Apps
 
@@ -32,7 +39,7 @@ Deploy it:
 
 ```bash
 kubectl apply -f argocd/pingpong-app.yaml
-argocd app get pingpong
+argocd app sync pingpong
 ```
 
 Try it:
@@ -56,11 +63,12 @@ Two Applications:
   traffic hits) and `-preview` (where the new version lands first). Chart is
   at `charts/bluegreen-demo`.
 
-Deploy both (or let the automated ArgoCD sync pick them up on the next poll):
+Deploy both:
 
 ```bash
 kubectl apply -f argocd/argo-rollouts-app.yaml
 kubectl apply -f argocd/bluegreen-demo-app.yaml
+argocd app sync argo-rollouts bluegreen-demo
 ```
 
 Watch it:
@@ -72,9 +80,10 @@ curl localhost:8081/color   # -> "blue"
 ```
 
 Trigger a blue/green rollout by bumping the image tag (e.g. `blue` ->
-`yellow`) in `charts/bluegreen-demo/values.yaml` and pushing to `main` -
-ArgoCD syncs the `Rollout` spec, which spins up new ("preview") pods on the
-`yellow` image while `-active` keeps serving `blue`:
+`yellow`) in `charts/bluegreen-demo/values.yaml`, pushing to `main`, then
+`argocd app sync bluegreen-demo` - that updates the `Rollout` spec, which
+spins up new ("preview") pods on the `yellow` image while `-active` keeps
+serving `blue`:
 
 ```bash
 kubectl -n bluegreen-demo port-forward svc/bluegreen-demo-preview 8082:80

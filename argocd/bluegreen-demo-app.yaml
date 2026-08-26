@@ -20,9 +20,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: bluegreen-demo
 
+  # Manual sync only - no automated/selfHeal. Run `argocd app sync bluegreen-demo`
+  # (or sync from the UI) to apply changes.
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true

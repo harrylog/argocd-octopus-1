@@ -26,9 +26,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: pingpong
 
+  # Manual sync only - no automated/selfHeal. Run `argocd app sync pingpong`
+  # (or sync from the UI) to apply changes.
   syncPolicy:
-    automated:
-      prune: true      # remove resources that are no longer defined in git
-      selfHeal: true    # revert any manual/out-of-band changes in the cluster
     syncOptions:
       - CreateNamespace=true
