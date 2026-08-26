@@ -23,6 +23,19 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          # /color is where argoproj/rollouts-demo's error-rate injection
+          # lives (bad-<color> tags ship with ERROR_RATE baked in, causing
+          # this endpoint to intermittently 500) - this is the actual signal
+          # kube_replicaset_status_ready_replicas ends up reflecting.
+          # Without this probe Kubernetes has no way to know the pod is
+          # unhealthy (the process itself never crashes).
+          readinessProbe:
+            httpGet:
+              path: /color
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            failureThreshold: 1
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
   strategy:

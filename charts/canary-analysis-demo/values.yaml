@@ -3,12 +3,13 @@
 replicaCount: 4
 
 # argoproj/rollouts-demo - same image bluegreen-demo/canary-demo use.
-# Tags "bad-<color>" deliberately fail their own health check (vs. plain
-# "<color>" which is healthy) - that's how this POC demonstrates a metric
-# actually catching a bad canary instead of always passing.
+# Tags "bad-<color>" ship with ERROR_RATE baked in, making /color
+# intermittently return HTTP 500 (vs. plain "<color>", which never does).
+# The container itself never crashes - only the rollout.yaml readinessProbe
+# hitting /color is what turns that into a Ready/NotReady signal at all.
 image:
   repository: argoproj/rollouts-demo
-  tag: "bad-red"
+  tag: "blue"
   pullPolicy: Always
 
 service:
