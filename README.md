@@ -165,21 +165,95 @@ Watch both the weight and the replica split live in the dashboard
 kubectl -n canary-demo get rollout canary-demo
 ```
 
+(See "Can canary and blue/green coexist?" below the third POC.)
+
+### rollouts-prometheus + canary-analysis-demo
+
+Practicing Codefresh's "Automated Rollbacks with Metrics" tutorial -
+canary-demo's manual `pause`/`promote` steps replaced with a Prometheus
+`AnalysisTemplate` that decides continue-or-rollback on its own.
+
+- `rollouts-prometheus` - a minimal standalone Prometheus + kube-state-metrics
+  (chart: `prometheus-community/prometheus`, **not** `kube-prometheus-stack` -
+  no CRDs, no Grafana/Alertmanager), namespace `rollouts-metrics`. Named
+  `rollouts-prometheus`, not `prometheus` - this cluster already has an
+  unrelated `prometheus` Application from a different repo
+  (`observability-monitoring-1`); don't rename this one back or they'll
+  collide on the same Application object (learned the hard way - see git log).
+- `canary-analysis-demo` - chart at `charts/canary-analysis-demo`. Canary
+  step lands 25% of traffic, then an inline `analysis` step (no `pause`)
+  queries `kube_replicaset_status_ready_replicas` / `..._replicas` for the
+  live canary ReplicaSet - Successful auto-continues to 100%, Failed
+  auto-aborts and rolls back. No human in the loop on either path.
+
+Deploy (Prometheus first - the analysis step needs it up):
+
+```bash
+kubectl apply -f argocd/rollouts-prometheus-app.yaml
+argocd app sync argo-rollouts rollouts-prometheus
+kubectl apply -f argocd/canary-analysis-demo-app.yaml
+argocd app sync canary-analysis-demo
+```
+
+**How the metric actually works - no app instrumentation needed.**
+`argoproj/rollouts-demo` has no `/metrics` endpoint, and its container never
+crashes even when its `bad-<color>` tags are misbehaving (they ship with
+`ERROR_RATE` baked in, making `/color` intermittently return HTTP 500 - see
+upstream `release.sh`/`main.go`). So `rollout.yaml` adds a real
+`readinessProbe` against `/color`, `failureThreshold: 1` - *that's* what
+turns "the app is occasionally erroring" into a Ready/NotReady signal
+kube-state-metrics can see at all. Without it, Kubernetes has no idea
+anything is wrong, and this whole POC silently does nothing (confirmed live
+- see below).
+
+Trigger the healthy path:
+
+```bash
+# charts/canary-analysis-demo/values.yaml: image.tag -> "purple" (or any plain color)
+argocd app sync canary-analysis-demo
+kubectl -n canary-analysis-demo get analysisruns -w   # -> Successful, rollout reaches 100%
+```
+
+Trigger the automatic-rollback path:
+
+```bash
+# image.tag -> "bad-red" (or any bad-<color>)
+argocd app sync canary-analysis-demo
+kubectl -n canary-analysis-demo get analysisruns -w   # -> Failed, rollout auto-aborts back to stable
+```
+
+Both paths are live-verified on this cluster, including two real bugs
+found and fixed along the way (worth knowing if you tune the timings):
+
+1. **`bad-*` looked identical to a healthy pod at first** - no readiness
+   check existed, so `bad-red` sailed through the analysis run "Successful"
+   and got auto-promoted to 100%. Fixed by adding the `readinessProbe`
+   above.
+2. **A genuinely healthy `blue` rollout got auto-aborted** - the analysis
+   `interval` (10s) was faster than Prometheus's own `scrape_interval`
+   (15s), so the first couple of measurements read stale/pre-rollout data
+   as "0 ready" and burned through `failureLimit` on startup lag alone, not
+   real unhealthiness. Fixed by dropping Prometheus's `scrape_interval` to
+   `5s` and raising the analysis `interval` to `15s` (and yes,
+   `scrape_timeout` has to shrink alongside `scrape_interval` too, or
+   Prometheus rejects the reload entirely and silently keeps running on
+   the old config - also confirmed live).
+
 **Can canary and blue/green coexist?** Yes, but at different scopes:
 
 - One `argo-rollouts` controller happily runs both strategies at once -
-  that's exactly what `bluegreen-demo` and `canary-demo` are doing side by
-  side in this repo, as two separate `Rollout` objects.
+  that's exactly what `bluegreen-demo`, `canary-demo`, and
+  `canary-analysis-demo` are doing side by side in this repo, as separate
+  `Rollout` objects.
 - A *single* `Rollout` cannot mix them - `spec.strategy.canary` and
   `spec.strategy.blueGreen` are mutually exclusive; you pick one per app.
   If you want blue/green's "fully inspect before any traffic" behavior
   *plus* canary's gradual ramp for the same app, canary's own `pause` /
-  `AnalysisTemplate` steps are Argo Rollouts' answer to that - not a
-  literal combination of both strategy blocks.
+  `AnalysisTemplate` steps (like `canary-analysis-demo` above) are Argo
+  Rollouts' answer to that - not a literal combination of both strategy
+  blocks.
 
 ## Planned next steps
 
 - Possibly an "app of apps" ArgoCD Application so `argocd/*.yaml` is itself
   managed by ArgoCD instead of `kubectl apply`d by hand.
-- Analysis-based automated rollbacks (`AnalysisTemplate` + metric checks)
-  on top of the canary POC above.
