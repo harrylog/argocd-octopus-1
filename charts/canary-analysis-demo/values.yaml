@@ -35,7 +35,7 @@ canary:
 # Prometheus POC in argocd/prometheus-app.yaml) what fraction of the canary
 # ReplicaSet's pods are Ready - no app-level instrumentation required.
 analysis:
-  prometheusAddress: http://prometheus-server.rollouts-metrics.svc.cluster.local
+  prometheusAddress: http://prometheus-server.monitoring.svc.cluster.local
   # 15s: long enough that by measurement 2 a healthy pod has cleared its
   # readinessProbe's initialDelaySeconds and Prometheus has a fresh (5s
   # scrape_interval) sample - not just startup lag showing up as "0 ready".
