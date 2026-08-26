@@ -1,0 +1,6 @@
+apiVersion: v2
+name: bluegreen-demo
+description: Argo Rollouts blue/green POC - a colored demo app switched via Rollout instead of Deployment
+type: application
+version: 0.1.0
+appVersion: "1.0"

@@ -1,0 +1,32 @@
+# Default values for the bluegreen-demo chart.
+
+replicaCount: 2
+
+# argoproj/rollouts-demo renders a full-page color swatch matching the image
+# tag - "blue"/"yellow" are the two colors we flip between for this POC.
+image:
+  repository: argoproj/rollouts-demo
+  tag: "blue"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+# Argo Rollouts blueGreen strategy. See templates/rollout.yaml.
+blueGreen:
+  # false = wait for `kubectl argo rollouts promote bluegreen-demo`.
+  # true  = flip active -> new version automatically once it's Ready.
+  autoPromotionEnabled: false
+  # keep the outgoing ReplicaSet running this long after promotion so an
+  # instant `kubectl argo rollouts undo` doesn't need to reschedule pods.
+  scaleDownDelaySeconds: 30
