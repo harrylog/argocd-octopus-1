@@ -8,7 +8,7 @@ replicaCount: 4
 # actually catching a bad canary instead of always passing.
 image:
   repository: argoproj/rollouts-demo
-  tag: "blue"
+  tag: "purple"
   pullPolicy: Always
 
 service:
