@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "canary-analysis-demo.fullname" . }}-ready-check
+  labels:
+    {{- include "canary-analysis-demo.labels" . | nindent 4 }}
+spec:
+  args:
+    - name: canary-hash
+  metrics:
+    - name: canary-pods-ready
+      interval: {{ .Values.analysis.interval | quote }}
+      count: {{ .Values.analysis.count }}
+      # Ratio of Ready replicas in the canary ReplicaSet, straight from
+      # kube-state-metrics - no app-level /metrics endpoint required.
+      # ReplicaSet is named "<rollout>-<pod-template-hash>", and Argo
+      # Rollouts injects the live canary hash into the query's arg
+      # placeholder at AnalysisRun time (that's its own templating, resolved
+      # after Helm - the backtick-quoted literal below is intentional).
+      successCondition: result[0] >= 1
+      failureCondition: result[0] < 1
+      failureLimit: {{ .Values.analysis.failureLimit }}
+      provider:
+        prometheus:
+          address: {{ .Values.analysis.prometheusAddress }}
+          query: |
+            kube_replicaset_status_ready_replicas{namespace="{{ .Release.Namespace }}",replicaset="{{ include "canary-analysis-demo.fullname" . }}-{{ `{{args.canary-hash}}` }}"}
+            /
+            kube_replicaset_status_replicas{namespace="{{ .Release.Namespace }}",replicaset="{{ include "canary-analysis-demo.fullname" . }}-{{ `{{args.canary-hash}}` }}"}

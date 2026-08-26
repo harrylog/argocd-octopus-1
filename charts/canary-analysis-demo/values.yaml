@@ -1,0 +1,42 @@
+# Default values for the canary-analysis-demo chart.
+
+replicaCount: 4
+
+# argoproj/rollouts-demo - same image bluegreen-demo/canary-demo use.
+# Tags "bad-<color>" deliberately fail their own health check (vs. plain
+# "<color>" which is healthy) - that's how this POC demonstrates a metric
+# actually catching a bad canary instead of always passing.
+image:
+  repository: argoproj/rollouts-demo
+  tag: "blue"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+# Canary steps: land 25% of traffic on the canary, then let a Prometheus
+# AnalysisTemplate decide - no human promote - whether to continue to 100%
+# or auto-abort. See templates/rollout.yaml + templates/analysistemplate.yaml.
+canary:
+  weight: 25
+
+# AnalysisTemplate settings. The query asks kube-state-metrics (via the
+# Prometheus POC in argocd/prometheus-app.yaml) what fraction of the canary
+# ReplicaSet's pods are Ready - no app-level instrumentation required.
+analysis:
+  prometheusAddress: http://prometheus-server.rollouts-metrics.svc.cluster.local
+  interval: "10s"
+  count: 3
+  # tolerate 1 bad measurement (pods still starting) out of 3; a second
+  # failure means the canary is genuinely unhealthy -> auto-abort.
+  failureLimit: 1

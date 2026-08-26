@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "canary-analysis-demo.fullname" . }}
+  labels:
+    {{- include "canary-analysis-demo.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      {{- include "canary-analysis-demo.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "canary-analysis-demo.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: canary-analysis-demo
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+  strategy:
+    canary:
+      stableService: {{ include "canary-analysis-demo.fullname" . }}-stable
+      canaryService: {{ include "canary-analysis-demo.fullname" . }}-canary
+      steps:
+        - setWeight: {{ .Values.canary.weight }}
+        # No pause here on purpose - the AnalysisTemplate below is the gate.
+        # Successful -> auto-continues to setWeight: 100. Failed -> the
+        # Rollout auto-aborts and scales the canary back to zero, no human
+        # in the loop, matching the tutorial's "Fully Automated Rollbacks".
+        - analysis:
+            templates:
+              - templateName: {{ include "canary-analysis-demo.fullname" . }}-ready-check
+            args:
+              - name: canary-hash
+                valueFrom:
+                  podTemplateHashValue: Latest
+        - setWeight: 100

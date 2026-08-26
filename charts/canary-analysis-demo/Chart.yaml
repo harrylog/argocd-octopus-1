@@ -1,0 +1,6 @@
+apiVersion: v2
+name: canary-analysis-demo
+description: Argo Rollouts "automated rollback with metrics" POC - a canary gated by a Prometheus AnalysisTemplate instead of a human promote
+type: application
+version: 0.1.0
+appVersion: "1.0"
