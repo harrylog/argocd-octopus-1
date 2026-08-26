@@ -37,7 +37,14 @@ spec:
         # kube_replicaset_status_ready_replicas for the AnalysisTemplate.
         # 5s so canary-analysis-demo's AnalysisTemplate measurements (every
         # 15s) aren't reading a stale pre-rollout scrape on the first one.
+        # scrape_timeout must be set too - it defaults to 10s, which is
+        # invalid (>scrape_interval) and silently keeps Prometheus running
+        # on its old config until this is fixed (confirmed live: the
+        # config-reloader's HTTP reload just gets rejected with "global
+        # scrape timeout greater than scrape interval").
         - name: server.global.scrape_interval
+          value: "5s"
+        - name: server.global.scrape_timeout
           value: "5s"
 
   destination:
