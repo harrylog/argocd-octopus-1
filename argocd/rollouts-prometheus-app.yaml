@@ -35,9 +35,10 @@ spec:
           value: "false"
         # kube-state-metrics stays enabled (default) - it's what exposes
         # kube_replicaset_status_ready_replicas for the AnalysisTemplate.
-        # Faster scrape so the live demo doesn't sit on stale samples.
+        # 5s so canary-analysis-demo's AnalysisTemplate measurements (every
+        # 15s) aren't reading a stale pre-rollout scrape on the first one.
         - name: server.global.scrape_interval
-          value: "15s"
+          value: "5s"
 
   destination:
     server: https://kubernetes.default.svc
