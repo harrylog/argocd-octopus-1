@@ -6,7 +6,7 @@ replicaCount: 2
 # tag - "blue"/"yellow" are the two colors we flip between for this POC.
 image:
   repository: argoproj/rollouts-demo
-  tag: "blue"
+  tag: "yellow"
   pullPolicy: Always
 
 service:
