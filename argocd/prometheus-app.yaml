@@ -14,7 +14,11 @@ spec:
     # apply issue an earlier, unrelated Application on this cluster hit),
     # no bundled Alertmanager. Grafana lives in its own Application
     # (grafana-app.yaml) and points at this Prometheus as a datasource.
-    repoURL: https://github.com/prometheus-community/helm-charts.git
+    #
+    # Vendored from prometheus-community/helm-charts (chart version 29.27.0)
+    # into charts/prometheus so this repo is the single source of truth for
+    # everything the cluster runs, same as every other app here.
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
     path: charts/prometheus
     targetRevision: main
     helm:

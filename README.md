@@ -167,30 +167,42 @@ kubectl -n canary-demo get rollout canary-demo
 
 (See "Can canary and blue/green coexist?" below the third POC.)
 
-### rollouts-prometheus + canary-analysis-demo
+### prometheus + grafana + canary-analysis-demo
 
 Practicing Codefresh's "Automated Rollbacks with Metrics" tutorial -
 canary-demo's manual `pause`/`promote` steps replaced with a Prometheus
-`AnalysisTemplate` that decides continue-or-rollback on its own.
+`AnalysisTemplate` that decides continue-or-rollback on its own. This also
+became the general monitoring platform for going deeper into
+ArgoCD/Prometheus/Grafana beyond just Rollouts analysis.
 
-- `rollouts-prometheus` - a minimal standalone Prometheus + kube-state-metrics
-  (chart: `prometheus-community/prometheus`, **not** `kube-prometheus-stack` -
-  no CRDs, no Grafana/Alertmanager), namespace `rollouts-metrics`. Named
-  `rollouts-prometheus`, not `prometheus` - this cluster already has an
-  unrelated `prometheus` Application from a different repo
-  (`observability-monitoring-1`); don't rename this one back or they'll
-  collide on the same Application object (learned the hard way - see git log).
+- `prometheus` - chart: `prometheus-community/prometheus` (**not**
+  `kube-prometheus-stack` - no CRDs, no bundled Alertmanager), vendored at
+  `charts/prometheus`, namespace `monitoring`. kube-state-metrics and
+  node-exporter enabled alongside it.
+- `grafana` - chart: `grafana/grafana`, vendored at `charts/grafana`, same
+  `monitoring` namespace, provisioned with the above Prometheus as its
+  default datasource. Admin password auto-generated into a `grafana` Secret
+  (not stored in git) - fetch it with:
+  `kubectl -n monitoring get secret grafana -o jsonpath='{.data.admin-password}' | base64 -d`
 - `canary-analysis-demo` - chart at `charts/canary-analysis-demo`. Canary
   step lands 25% of traffic, then an inline `analysis` step (no `pause`)
   queries `kube_replicaset_status_ready_replicas` / `..._replicas` for the
   live canary ReplicaSet - Successful auto-continues to 100%, Failed
   auto-aborts and rolls back. No human in the loop on either path.
 
+Both `prometheus` and `grafana` charts are vendored into this repo (`helm
+pull ... --untar` into `charts/prometheus` / `charts/grafana`) rather than
+the Application pointing at the upstream chart repo directly - keeps this
+repo the single source of truth for everything the cluster runs, same as
+every other app here.
+
 Deploy (Prometheus first - the analysis step needs it up):
 
 ```bash
-kubectl apply -f argocd/rollouts-prometheus-app.yaml
-argocd app sync argo-rollouts rollouts-prometheus
+kubectl apply -f argocd/prometheus-app.yaml
+argocd app sync argo-rollouts prometheus
+kubectl apply -f argocd/grafana-app.yaml
+argocd app sync grafana
 kubectl apply -f argocd/canary-analysis-demo-app.yaml
 argocd app sync canary-analysis-demo
 ```

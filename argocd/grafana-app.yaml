@@ -9,10 +9,10 @@ spec:
   project: default
 
   source:
-    # grafana/helm-charts (the org repo) no longer serves this chart at
-    # this path - grafana-community/helm-charts is the current maintained
-    # location (verified live before wiring this up).
-    repoURL: https://github.com/grafana-community/helm-charts.git
+    # Vendored from grafana/helm-charts (chart version 10.5.15) into
+    # charts/grafana so this repo is the single source of truth for
+    # everything the cluster runs, same as every other app here.
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
     path: charts/grafana
     targetRevision: main
     helm:
