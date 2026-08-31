@@ -1,0 +1,125 @@
+# Each entry becomes one ArgoCD Application (see templates/applications.yaml).
+# Add a new app to the cluster by adding an entry here and syncing root-app -
+# no more hand-authoring a separate argocd/<app>-app.yaml per app.
+apps:
+  - name: pingpong
+    namespace: pingpong
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
+    path: charts/pingpong
+    valueFiles:
+      - values.yaml
+    # Equivalent of `helm install --set message=...`. Overrides values.yaml
+    # without editing the chart - handy for per-Application tweaks.
+    parameters:
+      - name: message
+        value: "pong (via ArgoCD override)"
+
+  - name: loginpage
+    namespace: loginpage
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
+    path: charts/loginpage
+    valueFiles:
+      - values.yaml
+
+  - name: bluegreen-demo
+    namespace: bluegreen-demo
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
+    path: charts/bluegreen-demo
+    valueFiles:
+      - values.yaml
+
+  - name: canary-demo
+    namespace: canary-demo
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
+    path: charts/canary-demo
+    valueFiles:
+      - values.yaml
+
+  - name: canary-analysis-demo
+    namespace: canary-analysis-demo
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
+    path: charts/canary-analysis-demo
+    valueFiles:
+      - values.yaml
+
+  - name: prometheus
+    namespace: monitoring
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
+    path: charts/prometheus
+    # Deliberately the small standalone "prometheus" chart, not
+    # kube-prometheus-stack - no CRDs, no bundled Alertmanager. Grafana is
+    # its own Application below and points at this Prometheus as a
+    # datasource. Vendored from prometheus-community/helm-charts (chart
+    # version 29.27.0) into charts/prometheus.
+    releaseName: prometheus
+    parameters:
+      - name: alertmanager.enabled
+        value: "false"
+      - name: prometheus-pushgateway.enabled
+        value: "false"
+      # node-exporter (host CPU/mem/disk metrics) is cheap on a single
+      # laptop node and is what the classic "Node Exporter Full" Grafana
+      # dashboard needs.
+      - name: prometheus-node-exporter.enabled
+        value: "true"
+      # kube-state-metrics stays enabled (default) - object-level metrics
+      # used by canary-analysis-demo's AnalysisTemplate.
+      # scrape_timeout must never exceed scrape_interval - Prometheus
+      # rejects the reload (and silently keeps running on the old config)
+      # if it does; confirmed live while building this.
+      - name: server.global.scrape_interval
+        value: "5s"
+      - name: server.global.scrape_timeout
+        value: "5s"
+
+  - name: grafana
+    namespace: monitoring
+    repoURL: https://github.com/harrylog/argocd-octopus-1.git
+    path: charts/grafana
+    # Vendored from grafana/helm-charts (chart version 10.5.15) into
+    # charts/grafana so this repo is the single source of truth for
+    # everything the cluster runs, same as every other app here.
+    releaseName: grafana
+    parameters:
+      - name: fullnameOverride
+        value: grafana
+      # No adminPassword set here on purpose - the chart auto-generates one
+      # into a Secret (name: "grafana", keys admin-user/admin-password)
+      # rather than putting a plaintext password in git.
+    values: |
+      datasources:
+        datasources.yaml:
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              url: http://prometheus-server.monitoring.svc.cluster.local
+              access: proxy
+              isDefault: true
+
+  - name: argo-rollouts
+    namespace: argo-rollouts
+    # Argo's own Helm charts live in a separate repo from argo-rollouts
+    # itself - deliberately NOT vendored, unlike everything else here (same
+    # shape as sealed-secrets below).
+    repoURL: https://github.com/argoproj/argo-helm.git
+    path: charts/argo-rollouts
+    parameters:
+      # Deploys the built-in web dashboard (ClusterIP :3100) alongside the
+      # controller, so you can watch a rollout progress without installing
+      # the kubectl plugin. See README for how to reach it.
+      - name: dashboard.enabled
+        value: "true"
+
+  - name: sealed-secrets
+    namespace: sealed-secrets
+    # Helm chart pulled straight from its upstream git repo (path = chart
+    # dir), not vendored into this repo. (Both the tutorial's
+    # bitnami-labs.github.io Helm-repo URL and the charts.bitnami.com index
+    # are dead/unreachable post-Broadcom; the chart still lives in-repo at
+    # bitnami/sealed-secrets, so we source it from git.)
+    repoURL: https://github.com/bitnami/sealed-secrets.git
+    path: helm/sealed-secrets
+    parameters:
+      - name: fullnameOverride
+        value: sealed-secrets-controller

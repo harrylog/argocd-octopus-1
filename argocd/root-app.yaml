@@ -1,9 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: bluegreen-demo
+  name: root-app
   namespace: argocd
   finalizers:
+    # Cascades: deleting root-app deletes every Application it renders,
+    # and each of those cascades into its own deployed resources too.
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
@@ -11,17 +13,18 @@ spec:
   source:
     repoURL: https://github.com/harrylog/argocd-octopus-1.git
     targetRevision: main
-    path: charts/bluegreen-demo
+    path: charts/root-app
     helm:
       valueFiles:
         - values.yaml
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: bluegreen-demo
+    namespace: argocd
 
-  # Manual sync only - no automated/selfHeal. Run `argocd app sync bluegreen-demo`
-  # (or sync from the UI) to apply changes.
+  # Manual sync only - no automated/selfHeal, same convention as every
+  # child Application. root-app is the one thing still `kubectl apply`d by
+  # hand (bootstrap); everything it renders is then managed from git.
   syncPolicy:
     syncOptions:
       - CreateNamespace=true

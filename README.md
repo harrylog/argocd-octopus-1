@@ -14,19 +14,37 @@ Everything the cluster runs is defined here in git — that's the whole point of
 ```
 charts/           Helm charts for each app, one directory per app
   pingpong/        minimal HTTP echo app - the "hello world" of this POC
-argocd/           ArgoCD Application manifests (one per app), applied by hand for now
+  root-app/        app-of-apps root chart - renders every child Application below
+argocd/           root-app.yaml - the one Application applied by hand (bootstrap)
 ```
 
-Each app gets its own Helm chart under `charts/<app>` and its own `Application`
-manifest under `argocd/<app>-app.yaml` pointing at that chart path.
+This repo is **app-of-apps**: `argocd/root-app.yaml` is the only Application
+manifest anyone runs `kubectl apply` on. It points at `charts/root-app`, a
+Helm chart whose `values.yaml` lists every app (name, chart path, Helm
+parameters) and whose template renders one ArgoCD `Application` per entry.
+Adding a new app means adding a chart under `charts/<app>` plus one entry to
+`charts/root-app/values.yaml` - not hand-writing a new Application YAML.
 
 Sync is manual everywhere (`syncPolicy` has no `automated:` block) - ArgoCD
 never auto-syncs or self-heals. After changing a chart or pushing to `main`,
 apply the change yourself:
 
 ```bash
-argocd app sync <name>   # or click Sync in the UI
+argocd app sync <name>        # deploy a chart change for an existing app
+argocd app sync root-app      # after editing charts/root-app/values.yaml - re-renders the child Applications
 ```
+
+## Bootstrap (one-time, per cluster)
+
+```bash
+kubectl apply -f argocd/root-app.yaml
+argocd app sync root-app
+```
+
+That creates every app below as an ArgoCD `Application` object (still
+unsynced - each one deploys nothing until you `argocd app sync <name>` it,
+same manual-sync convention as always). The per-app "Deploy it" snippets
+below assume this has already been run once.
 
 ## Apps
 
@@ -38,7 +56,6 @@ just proving the Helm chart -> git -> ArgoCD -> cluster loop works end to end.
 Deploy it:
 
 ```bash
-kubectl apply -f argocd/pingpong-app.yaml
 argocd app sync pingpong
 ```
 
@@ -66,8 +83,6 @@ Two Applications:
 Deploy both:
 
 ```bash
-kubectl apply -f argocd/argo-rollouts-app.yaml
-kubectl apply -f argocd/bluegreen-demo-app.yaml
 argocd app sync argo-rollouts bluegreen-demo
 ```
 
@@ -136,7 +151,6 @@ front of `-stable`/`-canary` to get exact percentages.
 Deploy it:
 
 ```bash
-kubectl apply -f argocd/canary-demo-app.yaml
 argocd app sync argo-rollouts canary-demo   # argo-rollouts controller must exist first
 ```
 
@@ -199,11 +213,8 @@ every other app here.
 Deploy (Prometheus first - the analysis step needs it up):
 
 ```bash
-kubectl apply -f argocd/prometheus-app.yaml
 argocd app sync argo-rollouts prometheus
-kubectl apply -f argocd/grafana-app.yaml
 argocd app sync grafana
-kubectl apply -f argocd/canary-analysis-demo-app.yaml
 argocd app sync canary-analysis-demo
 ```
 
@@ -265,7 +276,3 @@ found and fixed along the way (worth knowing if you tune the timings):
   Rollouts' answer to that - not a literal combination of both strategy
   blocks.
 
-## Planned next steps
-
-- Possibly an "app of apps" ArgoCD Application so `argocd/*.yaml` is itself
-  managed by ArgoCD instead of `kubectl apply`d by hand.

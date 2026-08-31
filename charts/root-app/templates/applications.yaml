@@ -1,0 +1,51 @@
+{{- range .Values.apps }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: argocd
+  finalizers:
+    # Ensures ArgoCD cleans up deployed resources if this Application is deleted.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: {{ .repoURL }}
+    targetRevision: {{ .targetRevision | default "main" }}
+    path: {{ .path }}
+    {{- if or .releaseName .valueFiles .parameters .values }}
+    helm:
+      {{- with .releaseName }}
+      releaseName: {{ . }}
+      {{- end }}
+      {{- with .valueFiles }}
+      valueFiles:
+        {{- range . }}
+        - {{ . }}
+        {{- end }}
+      {{- end }}
+      {{- with .parameters }}
+      parameters:
+        {{- range . }}
+        - name: {{ .name }}
+          value: {{ .value | quote }}
+        {{- end }}
+      {{- end }}
+      {{- with .values }}
+      values: |
+        {{- nindent 8 . }}
+      {{- end }}
+    {{- end }}
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .namespace }}
+
+  # Manual sync only - no automated/selfHeal. Run `argocd app sync {{ .name }}`
+  # (or sync from the UI) to apply changes.
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

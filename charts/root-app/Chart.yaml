@@ -1,0 +1,8 @@
+apiVersion: v2
+name: root-app
+description: >
+  App-of-apps root. Renders one ArgoCD Application per entry in
+  values.yaml's `apps` list - this chart is the single source of truth
+  for which apps exist in the cluster.
+type: application
+version: 0.1.0
